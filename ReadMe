@@ -1,0 +1,8 @@
+This is a simple Android practice exercise.
+
+Problem Statement:
+Create a pairing game where a pair of users can chat using google firebase.
+
+
+Instructions:
+You should have google-services.json added to your project to run this code
