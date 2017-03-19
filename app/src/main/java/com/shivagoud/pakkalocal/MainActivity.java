@@ -10,6 +10,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -40,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         final TextView statusView = (TextView) findViewById(R.id.statusText);
+        final EditText nickView = (EditText) findViewById(R.id.nickNameView);
         final ProgressBar progressBar = (ProgressBar) findViewById(R.id.myProgressBar);
         final FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
 
@@ -49,7 +51,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 statusView.setText("Timeout occurred!");
-                progressBar.setVisibility(View.GONE);
+                progressBar.setVisibility(View.INVISIBLE);
+                nickView.setVisibility(View.VISIBLE);
                 fab.show();
             }
         };
@@ -64,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
                 statusView.setText("Connecting");
                 fab.hide();
                 progressBar.setVisibility(View.VISIBLE);
+                nickView.setVisibility(View.INVISIBLE);
                 handler.postDelayed(runnable,TIMEOUT_IN_SECONDS*1000);
 
                 final String iitoken = FirebaseInstanceId.getInstance().getToken();
@@ -73,8 +77,9 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                Map<String, Object> user = new HashMap<>();
+                final Map<String, Object> user = new HashMap<>();
                 user.put("id", FirebaseInstanceId.getInstance().getId());
+                user.put("nick", nickView.getText().toString());
                 user.put("token", iitoken);
                 user.put("time", System.currentTimeMillis()/1000);
                 final DatabaseReference selfRef = mFirebaseDatabaseReference.child("queued_users")
@@ -91,10 +96,10 @@ public class MainActivity extends AppCompatActivity {
                         if(!dataSnapshot.hasChild("time") || time > TIMEOUT_IN_SECONDS + (Long)dataSnapshot.child("time").getValue()) {
                             dataSnapshot.getRef().removeValue();
                         }else if(!dataSnapshot.getKey().equals(iitoken) && !dataSnapshot.hasChild("paired")) {
-                            dataSnapshot.getRef().child("paired").setValue(iitoken);
+                            dataSnapshot.getRef().child("paired").setValue(user);
 
-                            Snackbar.make(view, dataSnapshot.toString(), Snackbar.LENGTH_LONG)
-                                    .setAction("Action", null).show();
+                            String opponent_nick = (String) dataSnapshot.child("nick").getValue();
+                            statusView.setText("Paired with user: " + opponent_nick);
 
                             selfRef.removeValue();
                         }
@@ -113,14 +118,12 @@ public class MainActivity extends AppCompatActivity {
                         if(dataSnapshot.getKey().equals(iitoken)){
                             qUsers.removeEventListener(this);
                             if(dataSnapshot.hasChild("paired")) {
-                                String opponent = (String) dataSnapshot.child("paired").getValue();
-                                statusView.setText("Connected with user: " + opponent);
-                                removeProgressBar();
-                            }else{
-                                statusView.setText("Failed to connect.");
-                                removeProgressBar();
+                                String opponent_iitoken = (String) dataSnapshot.child("paired").child("token").getValue();
+                                String opponent_nick = (String) dataSnapshot.child("paired").child("nick").getValue();
+                                Log.d(TAG, "connected to "+opponent_iitoken);
+                                statusView.setText("Paired with user: " + opponent_nick);
                             }
-                            fab.show();
+                            removeProgressBar();
                         }
                     }
 
@@ -137,7 +140,8 @@ public class MainActivity extends AppCompatActivity {
 
                     private void removeProgressBar(){
                         handler.removeCallbacks(runnable);
-                        progressBar.setVisibility(View.GONE);
+                        progressBar.setVisibility(View.INVISIBLE);
+                        nickView.setVisibility(View.VISIBLE);
                         fab.show();
                     }
                 });
