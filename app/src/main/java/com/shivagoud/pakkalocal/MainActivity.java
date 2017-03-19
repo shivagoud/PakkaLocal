@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
         final Runnable runnable = new Runnable() {
             @Override
             public void run() {
-                statusView.setText("Timeout occurred!");
+                statusView.setText("No one is currently online!");
                 progressBar.setVisibility(View.INVISIBLE);
                 nickView.setVisibility(View.VISIBLE);
                 fab.show();
@@ -109,7 +109,14 @@ public class MainActivity extends AppCompatActivity {
                     public void onChildChanged(DataSnapshot dataSnapshot, String s) {
                         //Someone posted a pairing request, let me accept it
                         if(dataSnapshot.getKey().equals(iitoken) && dataSnapshot.hasChild("paired")) {
+                            String opponent_iitoken = (String) dataSnapshot.child("paired").child("token").getValue();
+                            String opponent_nick = (String) dataSnapshot.child("paired").child("nick").getValue();
+                            Log.d(TAG, "connected to "+opponent_iitoken);
+                            statusView.setText("Paired with user: " + opponent_nick);
                             selfRef.removeValue();
+
+                            qUsers.removeEventListener(this);
+                            removeProgressBar();
                         }
                     }
 
@@ -117,12 +124,6 @@ public class MainActivity extends AppCompatActivity {
                     public void onChildRemoved(DataSnapshot dataSnapshot) {
                         if(dataSnapshot.getKey().equals(iitoken)){
                             qUsers.removeEventListener(this);
-                            if(dataSnapshot.hasChild("paired")) {
-                                String opponent_iitoken = (String) dataSnapshot.child("paired").child("token").getValue();
-                                String opponent_nick = (String) dataSnapshot.child("paired").child("nick").getValue();
-                                Log.d(TAG, "connected to "+opponent_iitoken);
-                                statusView.setText("Paired with user: " + opponent_nick);
-                            }
                             removeProgressBar();
                         }
                     }
