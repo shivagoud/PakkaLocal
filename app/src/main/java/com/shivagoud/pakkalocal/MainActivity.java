@@ -1,19 +1,19 @@
 package com.shivagoud.pakkalocal;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.util.Pair;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -22,7 +22,6 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.iid.FirebaseInstanceId;
 
-import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +29,7 @@ import java.util.Map;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
+    private static final int TIMEOUT_IN_SECONDS = 60;
     DatabaseReference mFirebaseDatabaseReference;
 
 
@@ -40,17 +40,31 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         final TextView statusView = (TextView) findViewById(R.id.statusText);
+        final ProgressBar progressBar = (ProgressBar) findViewById(R.id.myProgressBar);
+        final FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+
+        // Hide after some seconds
+        final Handler handler  = new Handler();
+        final Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                statusView.setText("Timeout occurred!");
+                progressBar.setVisibility(View.GONE);
+                fab.show();
+            }
+        };
 
         //FirebaseApp.initializeApp(getApplicationContext());
         FirebaseApp.getInstance();
         mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
 
-       FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(final View view) {
                 statusView.setText("Connecting");
-
+                fab.hide();
+                progressBar.setVisibility(View.VISIBLE);
+                handler.postDelayed(runnable,TIMEOUT_IN_SECONDS*1000);
 
                 final String iitoken = FirebaseInstanceId.getInstance().getToken();
 
@@ -73,8 +87,8 @@ public class MainActivity extends AppCompatActivity {
                     public void onChildAdded(DataSnapshot dataSnapshot, String s) {
 
                         //match with the user if not self, is single, and is not expired
-                        long time = System.currentTimeMillis()/1000 - 5*60;
-                        if(!dataSnapshot.hasChild("time") || time > 300 + (Long)dataSnapshot.child("time").getValue()) {
+                        long time = System.currentTimeMillis()/1000;
+                        if(!dataSnapshot.hasChild("time") || time > TIMEOUT_IN_SECONDS + (Long)dataSnapshot.child("time").getValue()) {
                             dataSnapshot.getRef().removeValue();
                         }else if(!dataSnapshot.getKey().equals(iitoken) && !dataSnapshot.hasChild("paired")) {
                             dataSnapshot.getRef().child("paired").setValue(iitoken);
@@ -84,8 +98,6 @@ public class MainActivity extends AppCompatActivity {
 
                             selfRef.removeValue();
                         }
-
-
                     }
 
                     @Override
@@ -103,9 +115,12 @@ public class MainActivity extends AppCompatActivity {
                             if(dataSnapshot.hasChild("paired")) {
                                 String opponent = (String) dataSnapshot.child("paired").getValue();
                                 statusView.setText("Connected with user: " + opponent);
+                                removeProgressBar();
                             }else{
                                 statusView.setText("Failed to connect.");
+                                removeProgressBar();
                             }
+                            fab.show();
                         }
                     }
 
@@ -117,6 +132,13 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
                         statusView.setText("Failed to connect.");
+                        removeProgressBar();
+                    }
+
+                    private void removeProgressBar(){
+                        handler.removeCallbacks(runnable);
+                        progressBar.setVisibility(View.GONE);
+                        fab.show();
                     }
                 });
 
